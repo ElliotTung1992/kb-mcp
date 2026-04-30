@@ -25,6 +25,10 @@ kb:
   app:
     base-url: ${KB_APP_BASE_URL:http://localhost:8081}
 
+ielts:
+  app:
+    base-url: ${IELTS_APP_BASE_URL:http://localhost:8083}
+
 mcp:
   rate-limit:
     rpm: ${MCP_RATE_LIMIT_RPM:60}
