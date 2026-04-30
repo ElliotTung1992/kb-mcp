@@ -1,0 +1,26 @@
+version: '3.9'
+
+services:
+  mcp:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: kb-mcp
+    ports:
+      - "8082:8080"
+    env_file:
+      - .env
+    environment:
+      KB_APP_BASE_URL: http://kb-app:8080
+      SPRING_AI_MCP_SERVER_NAME: enterprise-kb
+      SPRING_AI_MCP_SERVER_VERSION: 1.0.0
+      SPRING_AI_MCP_SERVER_STDIO: "false"
+      MCP_RATE_LIMIT_RPM: ${MCP_RATE_LIMIT_RPM:-60}
+    networks:
+      - kb-network
+    restart: unless-stopped
+
+networks:
+  kb-network:
+    external: true
+    name: kb-network

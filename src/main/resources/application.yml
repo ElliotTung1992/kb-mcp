@@ -1,0 +1,30 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: kb-mcp
+  ai:
+    mcp:
+      server:
+        name: ${SPRING_AI_MCP_SERVER_NAME:enterprise-kb}
+        version: ${SPRING_AI_MCP_SERVER_VERSION:1.0.0}
+        stdio: ${SPRING_AI_MCP_SERVER_STDIO:false}
+        sse-endpoint: ${SPRING_AI_MCP_SERVER_SSE_ENDPOINT:/sse}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+kb:
+  app:
+    base-url: ${KB_APP_BASE_URL:http://localhost:8081}
+
+mcp:
+  rate-limit:
+    rpm: ${MCP_RATE_LIMIT_RPM:60}
