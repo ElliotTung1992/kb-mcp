@@ -24,7 +24,7 @@
 AI 客户端（Claude Desktop / Cursor / MCP Inspector）
   │  MCP 协议（SSE 或 stdio）
   ▼
-kb-mcp :8082          ← 本项目（认证 + 限流 + Tool/Resource 注册）
+kb-mcp :8084          ← 本项目（认证 + 限流 + Tool/Resource 注册）
   │  HTTP REST（Docker 内网）
   ▼
 kb-app :8081          ← 企业知识库主应用（鉴权、业务逻辑均由此处理）
@@ -93,7 +93,7 @@ java -jar target/kb-mcp-*.jar \
 ### 2.3 验证服务健康
 
 ```bash
-curl http://localhost:8082/actuator/health
+curl http://localhost:8084/actuator/health
 # {"status":"UP"}
 ```
 
@@ -101,7 +101,7 @@ curl http://localhost:8082/actuator/health
 
 | 容器/服务 | 对外端口 | 说明 |
 |-----------|----------|------|
-| kb-mcp | 8082 | MCP SSE 端点、健康检查 |
+| kb-mcp | 8084 | MCP SSE 端点、健康检查 |
 | kb-app | 8081 | 知识库主应用 REST API |
 
 ### 2.5 环境变量说明
@@ -183,7 +183,7 @@ curl -X DELETE http://localhost:8081/api/v1/me/api-keys/{keyId} \
 {
   "mcpServers": {
     "enterprise-kb": {
-      "url": "http://localhost:8082/sse",
+      "url": "http://localhost:8084/sse",
       "headers": {
         "X-API-Key": "ekb_your_key_here"
       }
@@ -199,7 +199,7 @@ curl -X DELETE http://localhost:8081/api/v1/me/api-keys/{keyId} \
 ```json
 {
   "enterprise-kb": {
-    "url": "http://localhost:8082/sse",
+    "url": "http://localhost:8084/sse",
     "headers": {
       "X-API-Key": "ekb_your_key_here"
     }
@@ -250,7 +250,7 @@ npx @modelcontextprotocol/inspector
 | 字段 | 值 |
 |------|----|
 | Transport | SSE |
-| URL | `http://localhost:8082/sse` |
+| URL | `http://localhost:8084/sse` |
 | Header Name | `X-API-Key` |
 | Header Value | `ekb_your_key_here` |
 
@@ -527,7 +527,7 @@ docker compose build mcp && docker compose up -d
 
 ```bash
 # 服务健康状态
-curl http://localhost:8082/actuator/health
+curl http://localhost:8084/actuator/health
 # {"status":"UP"}
 
 # 容器健康状态

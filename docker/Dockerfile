@@ -16,10 +16,10 @@ WORKDIR /app
 
 COPY --from=builder /build/target/*.jar app.jar
 
-EXPOSE 8080
+EXPOSE 8084
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD curl -sf http://localhost:8080/actuator/health || exit 1
+  CMD curl -sf http://localhost:8084/actuator/health || exit 1
 
 ENTRYPOINT ["java", \
   "-XX:+UseContainerSupport", \

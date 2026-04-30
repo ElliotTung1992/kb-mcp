@@ -7,7 +7,7 @@ services:
       dockerfile: docker/Dockerfile
     container_name: kb-mcp
     ports:
-      - "8082:8080"
+      - "8084:8084"
     env_file:
       - .env
     environment:
