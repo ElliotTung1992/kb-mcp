@@ -35,6 +35,14 @@ public class IeltsApiClient {
         return get(uri);
     }
 
+    public JsonNode createWord(Object word) {
+        return post("/api/ielts/words", word);
+    }
+
+    public JsonNode batchImportWords(Object words) {
+        return post("/api/ielts/words/batch", words);
+    }
+
     // ── 短语 ──────────────────────────────────────────────────────────────────
 
     public JsonNode listPhrases(Integer difficulty, String topicTags, int page, int size) {
@@ -85,6 +93,16 @@ public class IeltsApiClient {
             return objectMapper.readTree(raw);
         } catch (Exception e) {
             log.error("GET {} failed: {}", uri, e.getMessage());
+            throw new IeltsApiException("Failed to call kb-ielts: " + e.getMessage(), e);
+        }
+    }
+
+    private JsonNode post(String uri, Object body) {
+        try {
+            String raw = restClient.post().uri(uri).body(body).retrieve().body(String.class);
+            return objectMapper.readTree(raw);
+        } catch (Exception e) {
+            log.error("POST {} failed: {}", uri, e.getMessage());
             throw new IeltsApiException("Failed to call kb-ielts: " + e.getMessage(), e);
         }
     }

@@ -7,6 +7,9 @@ import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+import java.util.Map;
+
 @Component
 @RequiredArgsConstructor
 public class IeltsWordTool {
@@ -70,5 +73,48 @@ public class IeltsWordTool {
             if (!example.isBlank()) sb.append("  例句：").append(example).append("\n");
         }
         return sb.toString().trim();
+    }
+
+    @Tool(name = "ielts_create_word",
+          description = "新增一个雅思单词，需提供单词原形和中文释义，其余字段可选")
+    public String createWord(
+            @ToolParam(description = "单词原形，如 ambiguous") String word,
+            @ToolParam(description = "中文释义，多义词用换行分隔") String definitionZh,
+            @ToolParam(description = "英文释义", required = false) String definitionEn,
+            @ToolParam(description = "英式音标，如 /æmˈbɪɡjuəs/", required = false) String phoneticUk,
+            @ToolParam(description = "美式音标", required = false) String phoneticUs,
+            @ToolParam(description = "词性，如 adj. / n. / v.", required = false) String partOfSpeech,
+            @ToolParam(description = "词表来源：AWL / GSL / IELTS", required = false) String wordList,
+            @ToolParam(description = "难度：1=基础，2=中级，3=高级", required = false) Integer difficulty,
+            @ToolParam(description = "话题标签，逗号分隔，如 environment,technology", required = false) String topicTags,
+            @ToolParam(description = "适用技能，逗号分隔，如 reading,writing", required = false) String skillTags) {
+
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("word", word);
+        body.put("definitionZh", definitionZh);
+        if (definitionEn  != null) body.put("definitionEn", definitionEn);
+        if (phoneticUk    != null) body.put("phoneticUk", phoneticUk);
+        if (phoneticUs    != null) body.put("phoneticUs", phoneticUs);
+        if (partOfSpeech  != null) body.put("partOfSpeech", partOfSpeech);
+        if (wordList      != null) body.put("wordList", wordList);
+        if (difficulty    != null) body.put("difficulty", difficulty);
+        if (topicTags     != null) body.put("topicTags", topicTags);
+        if (skillTags     != null) body.put("skillTags", skillTags);
+
+        JsonNode resp = ieltsApiClient.createWord(body);
+        JsonNode data = resp.path("data");
+        return "单词「" + data.path("word").asText() + "」创建成功，ID：" + data.path("id").asText();
+    }
+
+    @Tool(name = "ielts_batch_import_words",
+          description = "批量导入雅思单词，每个单词至少包含 word（原形）和 definitionZh（中文释义）")
+    public String batchImportWords(
+            @ToolParam(description = "单词列表，JSON 数组，每项字段同 ielts_create_word") List<Map<String, Object>> words) {
+
+        if (words == null || words.isEmpty()) return "单词列表为空，未导入任何数据。";
+
+        JsonNode resp = ieltsApiClient.batchImportWords(words);
+        int count = resp.path("data").path("imported").asInt();
+        return "批量导入完成，成功导入 " + count + " 个单词。";
     }
 }
