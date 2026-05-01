@@ -34,6 +34,12 @@ public class McpApiKeyFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
+        // CORS preflight 不需要认证
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         // actuator/health 不需要认证
         if (request.getRequestURI().startsWith("/actuator")) {
             filterChain.doFilter(request, response);
