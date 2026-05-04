@@ -10,31 +10,53 @@ import com.enterprise.kb.mcp.tools.UploadTool;
 import com.enterprise.kb.mcp.tools.ielts.IeltsContentTool;
 import com.enterprise.kb.mcp.tools.ielts.IeltsStudyTool;
 import com.enterprise.kb.mcp.tools.ielts.IeltsWordTool;
+import com.enterprise.kb.mcp.transport.WebMvcStreamableHttpServerTransportProvider;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.server.McpServerFeatures;
+import io.modelcontextprotocol.spec.McpServerTransportProvider;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.function.RouterFunction;
+import org.springframework.web.servlet.function.ServerResponse;
 
 import java.util.List;
 
 /**
- * 注册所有 MCP Tools 和 Resources。
- * 传输方式、Server 名称、版本由 application.yml spring.ai.mcp.server.* 配置。
+ * 注册所有 MCP Tools、Resources 和 Streamable HTTP transport。
  *
- * <p>Tools 通过 {@link MethodToolCallbackProvider} 注册：框架读取 {@code @Tool} / {@code @ToolParam}
- * 注解自动生成 MCP JSON Schema，Claude 凭此 Schema 决定何时调用哪个 Tool。
- *
- * <p>Resources 通过 {@link McpServerFeatures.SyncResourceSpecification} 注册：需手动构造
- * MCP 协议数据结构，因为 Resource 没有参数 Schema，只有固定 URI 模板和读取回调。
- *
- * <p>kb-app Tools（search_*、ask_*、*_document 等）和 IELTS Tools（ielts_*）
- * 注册为两个独立的 Bean，分别对应不同的后端服务，互不依赖。
+ * <p>Spring AI 1.0.0 仅内置旧 HTTP+SSE transport。通过实现 {@link McpServerTransportProvider}
+ * 并定义为 Bean，触发 Spring AI auto-config 的 {@code @ConditionalOnMissingBean} 条件，
+ * 替换默认的 {@code WebMvcSseServerTransportProvider}，使 MCP 使用 Streamable HTTP 协议。
  */
 @Configuration
 public class McpServerConfig {
 
-    /** kb-app 知识库 Tools：搜索、问答、文档管理 */
+    // ── MCP Transport (Streamable HTTP) ──────────────────────────────────
+
+    /**
+     * 替换 Spring AI 内置的 SSE transport，启用 MCP Streamable HTTP 协议。
+     * {@code @ConditionalOnMissingBean(McpServerTransportProvider.class)} 会使
+     * Spring AI 的 WebMvcSseServerTransportProvider 退出装配。
+     */
+    @Bean
+    public McpServerTransportProvider mcpServerTransportProvider(ObjectMapper objectMapper) {
+        return new WebMvcStreamableHttpServerTransportProvider(objectMapper, "/mcp");
+    }
+
+    /**
+     * 注册 RouterFunction，使 Spring MVC 的 RouterFunctionMapping 能路由
+     * POST /mcp 和 DELETE /mcp 到 Streamable HTTP transport。
+     */
+    @Bean
+    public RouterFunction<ServerResponse> streamableHttpRouterFunction(
+            McpServerTransportProvider transportProvider) {
+        return ((WebMvcStreamableHttpServerTransportProvider) transportProvider).getRouterFunction();
+    }
+
+    // ── MCP Tools ─────────────────────────────────────────────────────────
+
     @Bean
     public ToolCallbackProvider knowledgeBaseTools(
             SearchTool searchTool, QaTool qaTool,
@@ -44,7 +66,6 @@ public class McpServerConfig {
                 .build();
     }
 
-    /** kb-ielts 雅思学习 Tools：单词、短语、语法、口语、写作、学习计划 */
     @Bean
     public ToolCallbackProvider ieltsTools(
             IeltsWordTool wordTool, IeltsStudyTool studyTool, IeltsContentTool contentTool) {
@@ -52,6 +73,8 @@ public class McpServerConfig {
                 .toolObjects(wordTool, studyTool, contentTool)
                 .build();
     }
+
+    // ── MCP Resources ─────────────────────────────────────────────────────
 
     @Bean
     public List<McpServerFeatures.SyncResourceSpecification> knowledgeBaseResources(

@@ -11,12 +11,15 @@ services:
     env_file:
       - .env
     environment:
-      KB_APP_BASE_URL: http://kb-app:8080
+      KB_APP_BASE_URL: http://kb-app:8081
       IELTS_APP_BASE_URL: http://kb-ielts:8083
       SPRING_AI_MCP_SERVER_NAME: enterprise-kb
       SPRING_AI_MCP_SERVER_VERSION: 1.0.0
       SPRING_AI_MCP_SERVER_STDIO: "false"
+      KB_MCP_TOKEN_FILE: /data/.kb-mcp-token
       MCP_RATE_LIMIT_RPM: ${MCP_RATE_LIMIT_RPM:-60}
+    volumes:
+      - kb-mcp-data:/data
     networks:
       - kb-network
     restart: unless-stopped
@@ -25,3 +28,6 @@ networks:
   kb-network:
     external: true
     name: kb-network
+
+volumes:
+  kb-mcp-data:

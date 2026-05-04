@@ -87,7 +87,8 @@ public class IeltsWordTool {
             @ToolParam(description = "词表来源：AWL / GSL / IELTS", required = false) String wordList,
             @ToolParam(description = "难度：1=基础，2=中级，3=高级", required = false) Integer difficulty,
             @ToolParam(description = "话题标签，逗号分隔，如 environment,technology", required = false) String topicTags,
-            @ToolParam(description = "适用技能，逗号分隔，如 reading,writing", required = false) String skillTags) {
+            @ToolParam(description = "适用技能，逗号分隔，如 reading,writing", required = false) String skillTags,
+            @ToolParam(description = "例句列表，每项包含 sentence（英文例句）和 translation（中文翻译）", required = false) List<Map<String, String>> examples) {
 
         Map<String, Object> body = new java.util.LinkedHashMap<>();
         body.put("word", word);
@@ -100,6 +101,9 @@ public class IeltsWordTool {
         if (difficulty    != null) body.put("difficulty", difficulty);
         if (topicTags     != null) body.put("topicTags", topicTags);
         if (skillTags     != null) body.put("skillTags", skillTags);
+        if (examples != null && !examples.isEmpty()) {
+            body.put("examples", examples);
+        }
 
         JsonNode resp = ieltsApiClient.createWord(body);
         JsonNode data = resp.path("data");

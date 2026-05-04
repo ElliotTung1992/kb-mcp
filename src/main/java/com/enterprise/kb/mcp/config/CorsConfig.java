@@ -9,7 +9,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
 /**
- * 允许 MCP Inspector（本地任意端口）跨域访问 SSE 端点和 OAuth 端点。
+ * 允许 MCP Inspector（本地任意端口）跨域访问 MCP 端点。
  * 仅用于开发调试，生产环境应限制 allowedOriginPatterns。
  */
 @Configuration
@@ -23,6 +23,7 @@ public class CorsConfig {
         config.addAllowedOriginPattern("http://127.0.0.1:*");
         config.addAllowedMethod("*");
         config.addAllowedHeader("*");
+        config.addExposedHeader("Mcp-Session-Id");
         config.setAllowCredentials(false);
         config.setMaxAge(3600L);
 

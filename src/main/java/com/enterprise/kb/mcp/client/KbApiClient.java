@@ -35,24 +35,6 @@ public class KbApiClient {
                 .build();
     }
 
-    // ── 认证 ────────────────────────────────────────────────────────────────
-
-    /**
-     * 用 API Key 换取短期 JWT。
-     */
-    public String exchangeApiKey(String rawApiKey) {
-        try {
-            JsonNode resp = post("/api/v1/auth/api-key/exchange",
-                    Map.of("apiKey", rawApiKey), null);
-            return resp.path("data").path("accessToken").asText();
-        } catch (HttpClientErrorException e) {
-            if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
-                throw new UnauthorizedException("Invalid API key");
-            }
-            throw e;
-        }
-    }
-
     // ── 搜索 ─────────────────────────────────────────────────────────────────
 
     /**
@@ -187,10 +169,6 @@ public class KbApiClient {
     }
 
     // ── 异常 ─────────────────────────────────────────────────────────────────
-
-    public static class UnauthorizedException extends RuntimeException {
-        public UnauthorizedException(String message) { super(message); }
-    }
 
     public static class KbApiException extends RuntimeException {
         public KbApiException(String message, Throwable cause) { super(message, cause); }
