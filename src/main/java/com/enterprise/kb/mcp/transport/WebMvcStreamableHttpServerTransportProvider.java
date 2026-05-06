@@ -1,7 +1,9 @@
 package com.enterprise.kb.mcp.transport;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpServerSession;
 import io.modelcontextprotocol.spec.McpServerTransport;
@@ -20,15 +22,16 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
- * MCP Streamable HTTP transport (2024-11-05 spec).
+ * MCP Streamable HTTP transport，单端点 /mcp 处理 JSON-RPC 请求/响应。
  *
- * <p>단일 엔드포인트(/mcp)로 JSON-RPC request/response를 처리한다.
- * Spring AI 1.0.0은 구 HTTP+SSE transport만 내장하므로, {@link McpServerTransportProvider}를
- * 직접 구현해 {@code @ConditionalOnMissingBean} 조건을 통해 auto-configure를 대체한다.
+ * <p>Spring AI 1.0.0 只内置旧 HTTP+SSE transport，通过实现 {@link McpServerTransportProvider}
+ * 并利用 {@code @ConditionalOnMissingBean} 替换自动配置。
  *
- * <p>세션 관리: initialize 시 새 세션 생성 → Mcp-Session-Id 헤더 반환.
- * 이후 요청은 헤더로 세션을 찾아 라우팅.
- * 각 요청은 {@link StreamableSessionTransport}의 CompletableFuture로 응답을 캡처.
+ * <p>会话管理：initialize 时创建新会话并在响应头返回 Mcp-Session-Id，
+ * 后续请求凭 header 路由到对应会话。每个 POST 请求通过 CompletableFuture 同步等待响应。
+ *
+ * <p>已知限制：SDK 0.10.0 只支持协议 2024-11-05，initialize 响应会将客户端请求的版本号回显，
+ * 使 Inspector 等较新客户端不因版本不匹配而拒绝连接。
  */
 @Slf4j
 public class WebMvcStreamableHttpServerTransportProvider implements McpServerTransportProvider {
@@ -68,7 +71,18 @@ public class WebMvcStreamableHttpServerTransportProvider implements McpServerTra
     public RouterFunction<ServerResponse> getRouterFunction() {
         return RouterFunctions.route()
                 .POST(mcpEndpoint, this::handlePost)
+                .GET(mcpEndpoint, this::handleGet)
                 .DELETE(mcpEndpoint, this::handleDelete)
+                .build();
+    }
+
+    // ── GET /mcp (SSE stream for server push — not supported, return 405) ──
+
+    private ServerResponse handleGet(ServerRequest request) {
+        // MCP 2025-11-25: client opens GET SSE for server-initiated messages.
+        // We don't support server push; 405 tells the client to use POST-only mode.
+        return ServerResponse.status(405)
+                .header("Allow", "POST, DELETE")
                 .build();
     }
 
@@ -111,20 +125,52 @@ public class WebMvcStreamableHttpServerTransportProvider implements McpServerTra
                         .build();
             }
 
-            // Requests: bridge reactive result to HTTP response via CompletableFuture
-            CompletableFuture<McpSchema.JSONRPCMessage> responseFuture = transport.setCurrentRequest();
+            // Requests: bridge reactive result to HTTP response via CompletableFuture keyed by request id
+            Object requestId = ((McpSchema.JSONRPCRequest) message).id();
+            CompletableFuture<McpSchema.JSONRPCMessage> responseFuture = transport.registerRequest(requestId);
             session.handle(message).block();
 
             McpSchema.JSONRPCMessage response = responseFuture.get(30, TimeUnit.SECONDS);
+            String responseJson = objectMapper.writeValueAsString(response);
+
+            // SDK only supports 2024-11-05 but clients may request a newer version.
+            // Echo the client's requested protocolVersion so Inspector doesn't reject the connection.
+            if (isInitialize) {
+                responseJson = patchProtocolVersion(responseJson, message);
+            }
+
             return ServerResponse.ok()
                     .header("Mcp-Session-Id", responseSessionId)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(objectMapper.writeValueAsString(response));
+                    .body(responseJson);
 
         } catch (Exception e) {
             log.error("MCP Streamable HTTP 处理失败", e);
             return errorResponse(null, -32603, "Internal server error: " + e.getMessage());
         }
+    }
+
+    // ── 协议版本补丁 ──────────────────────────────────────────────────────────
+
+    private String patchProtocolVersion(String responseJson, McpSchema.JSONRPCMessage initRequest) {
+        try {
+            McpSchema.JSONRPCRequest req = (McpSchema.JSONRPCRequest) initRequest;
+            JsonNode params = objectMapper.valueToTree(req.params());
+            String clientProtocol = params.path("protocolVersion").asText(null);
+            if (clientProtocol == null) return responseJson;
+
+            ObjectNode root = (ObjectNode) objectMapper.readTree(responseJson);
+            JsonNode result = root.get("result");
+            if (result instanceof ObjectNode resultObj && resultObj.has("protocolVersion")) {
+                String serverProtocol = resultObj.path("protocolVersion").asText();
+                resultObj.put("protocolVersion", clientProtocol);
+                log.info("initialize 协议版本: {} → {}", serverProtocol, clientProtocol);
+                return objectMapper.writeValueAsString(root);
+            }
+        } catch (Exception e) {
+            log.warn("协议版本补丁失败，使用原始响应: {}", e.getMessage());
+        }
+        return responseJson;
     }
 
     // ── DELETE /mcp ───────────────────────────────────────────────────────
@@ -156,30 +202,34 @@ public class WebMvcStreamableHttpServerTransportProvider implements McpServerTra
 
     /**
      * 每个 MCP 会话对应一个 transport 实例。
-     * 每次 POST 请求通过 {@link #setCurrentRequest()} 注册新 Future，
-     * McpServerSession 处理完毕后调用 {@link #sendMessage} 完成 Future，
+     * 每次 POST 请求通过 {@link #registerRequest(Object)} 注册 Future（以 request id 为 key），
+     * McpServerSession 处理完毕后 {@link #sendMessage} 按 id 路由到正确的 Future，
      * handlePost 阻塞等待后将结果写回 HTTP 响应。
+     * 使用 ConcurrentHashMap 支持同一会话的并发请求（如 Inspector 同时发 tools/list + resources/list）。
      */
     static class StreamableSessionTransport implements McpServerTransport {
 
         private final ObjectMapper objectMapper;
-        private volatile CompletableFuture<McpSchema.JSONRPCMessage> currentResponseFuture;
+        private final ConcurrentHashMap<Object, CompletableFuture<McpSchema.JSONRPCMessage>> pendingRequests =
+                new ConcurrentHashMap<>();
 
         StreamableSessionTransport(ObjectMapper objectMapper) {
             this.objectMapper = objectMapper;
         }
 
-        CompletableFuture<McpSchema.JSONRPCMessage> setCurrentRequest() {
+        CompletableFuture<McpSchema.JSONRPCMessage> registerRequest(Object requestId) {
             CompletableFuture<McpSchema.JSONRPCMessage> future = new CompletableFuture<>();
-            this.currentResponseFuture = future;
+            pendingRequests.put(requestId, future);
             return future;
         }
 
         @Override
         public Mono<Void> sendMessage(McpSchema.JSONRPCMessage message) {
-            CompletableFuture<McpSchema.JSONRPCMessage> future = currentResponseFuture;
-            if (future != null && !future.isDone()) {
-                future.complete(message);
+            if (message instanceof McpSchema.JSONRPCResponse response && response.id() != null) {
+                CompletableFuture<McpSchema.JSONRPCMessage> future = pendingRequests.remove(response.id());
+                if (future != null) {
+                    future.complete(message);
+                }
             }
             return Mono.empty();
         }
@@ -191,8 +241,8 @@ public class WebMvcStreamableHttpServerTransportProvider implements McpServerTra
 
         @Override
         public Mono<Void> closeGracefully() {
-            CompletableFuture<McpSchema.JSONRPCMessage> future = currentResponseFuture;
-            if (future != null) future.cancel(true);
+            pendingRequests.values().forEach(f -> f.cancel(true));
+            pendingRequests.clear();
             return Mono.empty();
         }
     }

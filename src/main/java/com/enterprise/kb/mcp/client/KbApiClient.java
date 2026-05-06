@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -29,8 +30,12 @@ public class KbApiClient {
 
     public KbApiClient(@Value("${kb.app.base-url}") String baseUrl, ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5_000);
+        factory.setReadTimeout(15_000);
         this.restClient = RestClient.builder()
                 .baseUrl(baseUrl)
+                .requestFactory(factory)
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }
@@ -107,6 +112,13 @@ public class KbApiClient {
      */
     public JsonNode getSpaceInfo(String spaceId, String jwt) {
         return get("/api/v1/spaces/" + spaceId, jwt);
+    }
+
+    /**
+     * 列出当前用户有权访问的所有知识空间。
+     */
+    public JsonNode listSpaces(String jwt) {
+        return get("/api/v1/spaces", jwt);
     }
 
     // ── 文档上传 ──────────────────────────────────────────────────────────────

@@ -12,8 +12,11 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * MCP Resource：space://{spaceId}/info
- * 提供知识空间元信息（名称、描述、slug 等）。
+ * MCP Resource Template：{@code space://{spaceId}/info}
+ *
+ * <p>URI 含模板参数，SDK 会将其同时放入 Resources 和 Resource Templates 两个列表。
+ * AI 无法直接使用，需先读取 {@code enterprise://spaces} 获取 spaceId，
+ * 再以 {@code space://实际spaceId/info} 构造具体 URI 发起读取请求。
  */
 @Component
 @RequiredArgsConstructor
@@ -25,7 +28,7 @@ public class SpaceResource {
         McpSchema.Resource resource = new McpSchema.Resource(
                 "space://{spaceId}/info",
                 "space-info",
-                "知识空间元信息，包含名称、描述、slug 等",
+                "知识空间元信息，包含名称、描述、slug、首选模型等。需将 {spaceId} 替换为实际 ID",
                 "text/plain",
                 null
         );
@@ -36,9 +39,17 @@ public class SpaceResource {
                                                McpSchema.ReadResourceRequest request) {
         String uri = request.uri();
         String spaceId = extractSpaceId(uri);
-        String jwt = McpRequestContext.getJwt();
 
-        JsonNode data = kbApiClient.getSpaceInfo(spaceId, jwt).path("data");
+        // 客户端直接用模板 URI 请求时（未替换 {spaceId}），返回引导提示而非报错
+        if (spaceId.contains("{") || spaceId.contains("}")) {
+            String hint = "请将 {spaceId} 替换为实际的空间 ID，例如：space://your-space-id/info\n"
+                        + "可先读取 enterprise://spaces 获取可用的 spaceId 列表。";
+            return new McpSchema.ReadResourceResult(
+                    List.of(new McpSchema.TextResourceContents(uri, "text/plain", hint))
+            );
+        }
+
+        JsonNode data = kbApiClient.getSpaceInfo(spaceId, McpRequestContext.getJwt()).path("data");
 
         String text = "知识空间信息\n"
                 + "名称：" + data.path("name").asText("—") + "\n"
@@ -52,7 +63,6 @@ public class SpaceResource {
     }
 
     private static String extractSpaceId(String uri) {
-        // space://spaceId/info  →  spaceId
         return uri.replace("space://", "").split("/")[0];
     }
 }
