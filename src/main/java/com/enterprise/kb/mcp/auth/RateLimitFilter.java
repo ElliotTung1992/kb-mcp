@@ -43,9 +43,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
-        if (request.getRequestURI().startsWith("/actuator")
-                || request.getRequestURI().startsWith("/mcp/login")
-                || request.getRequestURI().startsWith("/mcp/status")) {
+        if (request.getRequestURI().startsWith("/actuator")) {
             chain.doFilter(request, response);
             return;
         }

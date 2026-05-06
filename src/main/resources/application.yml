@@ -8,7 +8,7 @@ spring:
     mcp:
       server:
         enabled: true
-        name: ${SPRING_AI_MCP_SERVER_NAME:enterprise-kb}
+        name: ${SPRING_AI_MCP_SERVER_NAME:kb-ielts-mcp}
         version: ${SPRING_AI_MCP_SERVER_VERSION:1.0.0}
         stdio: false
 
@@ -21,10 +21,6 @@ management:
     health:
       show-details: never
 
-kb:
-  app:
-    base-url: ${KB_APP_BASE_URL:http://localhost:8081}
-
 ielts:
   app:
     base-url: ${IELTS_APP_BASE_URL:http://localhost:8083}
@@ -32,5 +28,3 @@ ielts:
 mcp:
   rate-limit:
     rpm: ${MCP_RATE_LIMIT_RPM:60}
-  # token 文件存储路径
-  token-file: ${KB_MCP_TOKEN_FILE:/data/.kb-mcp-token}

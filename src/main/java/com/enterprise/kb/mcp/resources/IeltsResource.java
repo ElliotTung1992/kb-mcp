@@ -14,7 +14,6 @@ import java.util.List;
  * MCP Resources：{@code ielts://today/plan} 和 {@code ielts://study/stats}
  *
  * <p>两者均为固定 URI，无需参数，AI 可直接读取。
- * kb-ielts 服务不需要 JWT 认证，因此这两个 Resource 不依赖 {@link com.enterprise.kb.mcp.auth.McpRequestContext}。
  * 适合作为雅思学习会话的背景上下文，AI 先了解当前进度和计划，再提供针对性的学习建议。
  */
 @Component

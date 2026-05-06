@@ -62,6 +62,7 @@ description: |
 | `difficulty` | ❌ | integer | 难度：`1`=基础 / `2`=中级 / `3`=高级 |
 | `topicTags` | ❌ | string | 话题标签，逗号分隔，如 `environment,technology` |
 | `skillTags` | ❌ | string | 适用技能，逗号分隔，如 `reading,writing` |
+| `relatedWords` | ❌ | string | 关联词，逗号分隔，如同义词/反义词等 |
 | `examples` | ❌ | array | 例句列表，每项包含 `sentence`（英文例句）和 `translation`（中文翻译） |
 
 ---

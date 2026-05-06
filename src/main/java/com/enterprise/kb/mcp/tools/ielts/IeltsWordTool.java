@@ -40,8 +40,10 @@ public class IeltsWordTool {
             sb.append("- **").append(w.path("word").asText()).append("**");
             String phonetic = w.path("phonetic").asText("");
             if (!phonetic.isBlank()) sb.append(" ").append(phonetic);
-            sb.append("\n  释义：").append(w.path("definition").asText("—"));
+            sb.append("\n  释义：").append(w.path("definitionZh").asText("—"));
             sb.append("\n  难度：").append(w.path("difficulty").asInt()).append(" | 词表：").append(w.path("wordList").asText("—"));
+            String relatedWords = w.path("relatedWords").asText("");
+            if (!relatedWords.isBlank()) sb.append("\n  关联词：").append(relatedWords);
             sb.append("\n");
         }
         return sb.toString().trim();
@@ -88,6 +90,7 @@ public class IeltsWordTool {
             @ToolParam(description = "难度：1=基础，2=中级，3=高级", required = false) Integer difficulty,
             @ToolParam(description = "话题标签，逗号分隔，如 environment,technology", required = false) String topicTags,
             @ToolParam(description = "适用技能，逗号分隔，如 reading,writing", required = false) String skillTags,
+            @ToolParam(description = "关联词，逗号分隔，如同义词/反义词等", required = false) String relatedWords,
             @ToolParam(description = "例句列表，每项包含 sentence（英文例句）和 translation（中文翻译）", required = false) List<Map<String, String>> examples) {
 
         Map<String, Object> body = new java.util.LinkedHashMap<>();
@@ -101,6 +104,7 @@ public class IeltsWordTool {
         if (difficulty    != null) body.put("difficulty", difficulty);
         if (topicTags     != null) body.put("topicTags", topicTags);
         if (skillTags     != null) body.put("skillTags", skillTags);
+        if (relatedWords  != null) body.put("relatedWords", relatedWords);
         if (examples != null && !examples.isEmpty()) {
             body.put("examples", examples);
         }
