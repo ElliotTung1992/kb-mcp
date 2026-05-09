@@ -16,3 +16,4 @@ target/
 # 日志
 *.log
 logs/
+/docs/
