@@ -8,9 +8,16 @@ spring:
     mcp:
       server:
         enabled: true
+        protocol: STREAMABLE
+        type: SYNC
         name: ${SPRING_AI_MCP_SERVER_NAME:kb-ielts-mcp}
         version: ${SPRING_AI_MCP_SERVER_VERSION:1.0.0}
         stdio: false
+        capabilities:
+          completion: true
+        streamable-http:
+          mcp-endpoint: /mcp
+          disallow-delete: true
 
 management:
   endpoints:
